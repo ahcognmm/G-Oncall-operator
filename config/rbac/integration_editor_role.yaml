@@ -1,0 +1,31 @@
+# permissions for end users to edit integrations.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: integration-editor-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: grafana-oncall-operator
+    app.kubernetes.io/part-of: grafana-oncall-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: integration-editor-role
+rules:
+- apiGroups:
+  - oncall.ahcogn
+  resources:
+  - integrations
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - oncall.ahcogn
+  resources:
+  - integrations/status
+  verbs:
+  - get

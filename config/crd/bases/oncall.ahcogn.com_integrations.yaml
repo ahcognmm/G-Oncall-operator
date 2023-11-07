@@ -1,0 +1,85 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.11.1
+  creationTimestamp: null
+  name: integrations.oncall.ahcogn.com
+spec:
+  group: oncall.ahcogn.com
+  names:
+    kind: Integration
+    listKind: IntegrationList
+    plural: integrations
+    singular: integration
+  scope: Namespaced
+  versions:
+  - name: v1
+    schema:
+      openAPIV3Schema:
+        description: Integration is the Schema for the integrations API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: IntegrationSpec defines the desired state of Integration
+            properties:
+              id:
+                type: string
+              name:
+                type: string
+                x-kubernetes-validations:
+                - message: Value is immutable
+                  rule: self == oldSelf
+              templates:
+                properties:
+                  acknowledge_signal:
+                    type: string
+                  grouping_key:
+                    type: string
+                  resolve_signal:
+                    type: string
+                  source_link:
+                    type: string
+                  web:
+                    properties:
+                      image_url:
+                        type: string
+                      message:
+                        type: string
+                      title:
+                        type: string
+                    type: object
+                type: object
+              type:
+                type: string
+            required:
+            - type
+            type: object
+          status:
+            description: IntegrationStatus defines the observed state of Integration
+            properties:
+              httpEndpoing:
+                description: 'INSERT ADDITIONAL STATUS FIELD - define observed state
+                  of cluster Important: Run "make" to regenerate code after modifying
+                  this file'
+                type: string
+            required:
+            - httpEndpoing
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

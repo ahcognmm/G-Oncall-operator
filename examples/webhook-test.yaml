@@ -1,0 +1,8 @@
+apiVersion: oncall.ahcogn.com/v1
+kind: Integration
+metadata:
+  name: test
+  namespace: oncall
+spec:
+  type: webhook
+  name: "hapn test"

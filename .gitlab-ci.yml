@@ -1,0 +1,36 @@
+include:
+  - project: 'devops/auto-devops'
+    ref: main
+    file:
+      - 'collections/Container-Image.gitlab-ci.yml'
+
+default:
+  tags:
+    - docker
+
+variables:
+  # =================================================================================================
+  # workflow
+  # =================================================================================================
+  # lint
+  LINT_YAML_DISABLED: "true"
+  LINT_MD_DISABLED: "true"
+  LINT_DOCKER_DISABLED: "true"
+  # # test
+  UNICODE_BIDI_TEST_DISABLED: "true"
+  # # docker-build -> always enabled
+  # # docker-test
+  # CONTAINER_SCANNING_DISABLED: "true"
+  # DOCKER_DIVE_DISABLED: "true"
+  # IMAGE_TEST_DISABLED: "true"
+  # # release
+  GITLAB_RELEASE_DISABLED: "true"
+
+  # for docker_package
+  DOCKER_REGISTRY: $ECR_REGISTRY
+  IMAGE_NAME: $CI_PROJECT_NAME
+  PUSH_TO_ECR: "true"
+  # upstream image
+  # UPSTREAM_IMAGE_TAG: "3.16.2"
+  UPSTREAM_IMAGE_TAG: "latest"
+
