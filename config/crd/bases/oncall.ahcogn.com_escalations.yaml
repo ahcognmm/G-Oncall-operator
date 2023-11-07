@@ -1,0 +1,91 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.11.1
+  creationTimestamp: null
+  name: escalations.oncall.ahcogn.com
+spec:
+  group: oncall.ahcogn.com
+  names:
+    kind: Escalation
+    listKind: EscalationList
+    plural: escalations
+    singular: escalation
+  scope: Namespaced
+  versions:
+  - name: v1
+    schema:
+      openAPIV3Schema:
+        description: Escalation is the Schema for the escalations API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: 'TODO: teamid default is nothing EscalationSpec defines the
+              desired state of Escalation'
+            properties:
+              escalation_policies:
+                items:
+                  properties:
+                    action_to_trigger:
+                      description: Out going webhook name
+                      type: string
+                    duration:
+                      enum:
+                      - 60
+                      - 300
+                      - 900
+                      - 1800
+                      - 3600
+                      type: integer
+                    group_to_notify:
+                      type: string
+                    id:
+                      type: string
+                    important:
+                      type: string
+                    notify_if_time_from:
+                      type: string
+                    notify_if_time_to:
+                      type: string
+                    notify_on_call_from_schedule:
+                      type: string
+                    persons_to_notify:
+                      items:
+                        type: string
+                      type: array
+                    persons_to_notify_next_each_time:
+                      items:
+                        type: string
+                      type: array
+                    position:
+                      type: string
+                    type:
+                      type: string
+                  type: object
+                type: array
+              id:
+                type: string
+              name:
+                type: string
+            type: object
+          status:
+            description: EscalationStatus defines the observed state of Escalation
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

@@ -1,0 +1,27 @@
+# permissions for end users to view escalations.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: escalation-viewer-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: grafana-oncall-operator
+    app.kubernetes.io/part-of: grafana-oncall-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: escalation-viewer-role
+rules:
+- apiGroups:
+  - oncall.ahcogn.com
+  resources:
+  - escalations
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - oncall.ahcogn.com
+  resources:
+  - escalations/status
+  verbs:
+  - get

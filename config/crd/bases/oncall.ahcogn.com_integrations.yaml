@@ -35,14 +35,55 @@ spec:
           spec:
             description: IntegrationSpec defines the desired state of Integration
             properties:
+              default_route:
+                description: 'TODO: add slack setting for routes'
+                properties:
+                  escalation_chain:
+                    type: string
+                  id:
+                    type: string
+                    x-kubernetes-validations:
+                    - message: Value is immutable
+                      rule: self == oldSelf
+                  position:
+                    type: integer
+                  routing_regex:
+                    type: string
+                required:
+                - position
+                type: object
               id:
                 type: string
+                x-kubernetes-validations:
+                - message: Value is immutable
+                  rule: self == oldSelf
               name:
                 type: string
                 x-kubernetes-validations:
                 - message: Value is immutable
                   rule: self == oldSelf
+              routes:
+                items:
+                  description: 'TODO: add slack setting for routes'
+                  properties:
+                    escalation_chain:
+                      type: string
+                    id:
+                      type: string
+                      x-kubernetes-validations:
+                      - message: Value is immutable
+                        rule: self == oldSelf
+                    position:
+                      type: integer
+                    routing_regex:
+                      type: string
+                  required:
+                  - position
+                  type: object
+                type: array
               templates:
+                description: 'TODO: add remaining templates: sms, slack, phone_call,
+                  telegram'
                 properties:
                   acknowledge_signal:
                     type: string
@@ -70,13 +111,18 @@ spec:
           status:
             description: IntegrationStatus defines the observed state of Integration
             properties:
-              httpEndpoing:
+              http_endpoint:
                 description: 'INSERT ADDITIONAL STATUS FIELD - define observed state
                   of cluster Important: Run "make" to regenerate code after modifying
                   this file'
                 type: string
+              route_ids:
+                items:
+                  type: string
+                type: array
             required:
-            - httpEndpoing
+            - http_endpoint
+            - route_ids
             type: object
         type: object
     served: true

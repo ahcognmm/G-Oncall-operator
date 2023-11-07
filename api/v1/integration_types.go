@@ -47,11 +47,15 @@ type IntegrationSpec struct {
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable"
 	Name string `json:"name,omitempty"`
 
-	ID        string    `json:"id,omitempty"`
-	Type      string    `json:"type"`
-	Templates Templates `json:"templates,omitempty"`
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable"
+	ID           string    `json:"id,omitempty"`
+	Type         string    `json:"type"`
+	Templates    Templates `json:"templates,omitempty"`
+	DefaultRoute Route     `json:"default_route,omitempty"`
+	Routes       []Route   `json:"routes,omitempty"`
 }
 
+// TODO: add remaining templates: sms, slack, phone_call, telegram
 type Templates struct {
 	GroupingKey       string      `json:"grouping_key,omitempty"`
 	ResolveSignal     string      `json:"resolve_signal,omitempty"`
@@ -66,11 +70,22 @@ type TemplateWeb struct {
 	ImageURL string `json:"image_url,omitempty"`
 }
 
+// TODO: add slack setting for routes
+type Route struct {
+
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable"
+	ID              string `json:"id,omitempty"`
+	EscalationChain string `json:"escalation_chain,omitempty"`
+	RoutingRegex    string `json:"routing_regex,omitempty"`
+	Position        int    `json:"position"`
+}
+
 // IntegrationStatus defines the observed state of Integration
 type IntegrationStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	HttpEndpoint string `json:"httpEndpoing"`
+	HttpEndpoint string   `json:"http_endpoint"`
+	RouteIDs     []string `json:"route_ids"`
 }
 
 //+kubebuilder:object:root=true

@@ -21,6 +21,7 @@ import (
 
 const (
 	integrationUrl  = "/api/v1/integrations/"
+	routeUrl        = "/api/v1/routes/"
 	oncallFinalizer = "oncall.grafana.com/finalizer"
 )
 
@@ -48,7 +49,7 @@ type IntegrationReconciler struct {
 func (r *IntegrationReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := ctrllog.FromContext(ctx)
 	log.Info("Start reconcile oncall resource...")
-	baseUrl := r.Config.OncallUrl.JoinPath(integrationUrl)
+	baseIntegrationUrl := r.Config.OncallUrl.JoinPath(integrationUrl)
 	// TODO(user): your logic here
 	integration := &oncallv1.Integration{}
 	err := r.Get(ctx, req.NamespacedName, integration)
@@ -77,7 +78,7 @@ func (r *IntegrationReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	isIntegrationMarkedToBeDeleted := integration.GetDeletionTimestamp() != nil
 	if isIntegrationMarkedToBeDeleted {
 		log.Info("Cleaning resource " + integration.Name + ": " + integration.Spec.Name)
-		resourceURLbyID := baseUrl.JoinPath(iId)
+		resourceURLbyID := baseIntegrationUrl.JoinPath(iId)
 		if controllerutil.ContainsFinalizer(integration, oncallFinalizer) {
 			// Run finalization logic for memcachedFinalizer. If the
 			// finalization logic fails, don't remove the finalizer so
@@ -107,53 +108,39 @@ func (r *IntegrationReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	if iId == "" {
-		liveIntegration, err := r.createIntegration(ctx, *baseUrl, client, integration)
+		err := r.createIntegration(ctx, *baseIntegrationUrl, client, integration)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-
-		integration.Spec.ID = liveIntegration.ID
-		rawjs, err := json.Marshal(liveIntegration)
-
-		log.Info(string(rawjs))
 
 		err = r.Update(ctx, integration)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
+
+		err = r.Status().Update(ctx, integration)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		// let operator reconcile again and update missing field
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	resourceURLbyID := baseUrl.JoinPath(iId)
-
-	liveIntegration, err := r.getIntegration(ctx, *resourceURLbyID, client, iId)
+	err = r.updateIntegration(ctx, *&r.Config.OncallUrl, client, integration)
 	if err != nil {
+		return ctrl.Result{}, err
 	}
 
-	integration.Status.HttpEndpoint = liveIntegration.Link
-	r.Status().Update(ctx, integration)
+	err = r.Status().Update(ctx, integration)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 
 	log.Info("Done reconcile oncall")
 	return ctrl.Result{}, nil
 }
 
-func (r *IntegrationReconciler) getIntegration(ctx context.Context, url url.URL, client oncallClient.Client, integrationId string) (*oncall_schema.Integration, error) {
-
-	resp, err := client.Get(ctx, url)
-	if err != nil {
-		return nil, err
-	}
-
-	integrationResp := &oncall_schema.Integration{}
-	err = json.NewDecoder(bytes.NewReader(resp)).Decode(&integrationResp)
-	if err != nil {
-		return nil, err
-	}
-
-	return integrationResp, err
-}
-
-func (r *IntegrationReconciler) createIntegration(ctx context.Context, url url.URL, client oncallClient.Client, integration *oncallv1.Integration) (*oncall_schema.Integration, error) {
+func (r *IntegrationReconciler) createIntegration(ctx context.Context, url url.URL, client oncallClient.Client, integration *oncallv1.Integration) error {
 
 	if integration.Spec.Name == "" {
 		integration.Spec.Name = integration.Name
@@ -165,21 +152,70 @@ func (r *IntegrationReconciler) createIntegration(ctx context.Context, url url.U
 
 	resp, err := client.Post(ctx, url, integrationReq)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	integrationResp := &oncall_schema.Integration{}
 	err = json.NewDecoder(bytes.NewReader(resp)).Decode(&integrationResp)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return integrationResp, err
+	integration.Status.HttpEndpoint = integrationResp.Link
+	integration.Spec.ID = integrationResp.ID
+	integration.Spec.DefaultRoute = integrationResp.DefaultRoute
+	return err
 }
 
-func (r *IntegrationReconciler) updateIntegration(ctx context.Context, url url.URL, client oncallClient.Client, integration *oncallv1.Integration) (*oncall_schema.Integration, error) {
+func (r *IntegrationReconciler) updateIntegration(ctx context.Context, url url.URL, client oncallClient.Client, integration *oncallv1.Integration) error {
+	integrationReq := &oncallv1.IntegrationSpec{
+		Templates: integration.Spec.Templates,
+	}
 
-	return nil, nil
+	target := url.JoinPath(integrationUrl).JoinPath(integration.Spec.ID)
+
+	resp, err := client.Put(ctx, *target, integrationReq)
+	if err != nil {
+		return err
+	}
+
+	integrationResp := &oncall_schema.Integration{}
+	err = json.NewDecoder(bytes.NewReader(resp)).Decode(&integrationResp)
+	if err != nil {
+		return err
+	}
+
+	var routes []oncallv1.Route
+	baseRouteUrl := url.JoinPath(routeUrl)
+	for _, route := range integration.Spec.Routes {
+		var (
+			resp []byte
+			err  error
+		)
+		if route.ID != "" {
+			baseURL := baseRouteUrl.JoinPath(route.ID)
+			resp, err = client.Put(ctx, *baseURL, route)
+			if err != nil {
+				return err
+			}
+		} else {
+			resp, err = client.Post(ctx, *baseRouteUrl, route)
+			if err != nil {
+				return err
+			}
+
+		}
+
+		routeResponse := &oncallv1.Route{}
+		err = json.NewDecoder(bytes.NewBuffer(resp)).Decode(&routeResponse)
+		if err != nil {
+			return err
+		}
+		routes = append(routes, *routeResponse)
+	}
+
+	integration.Spec.Routes = routes
+	return nil
 }
 
 func (r *IntegrationReconciler) finalizeIntegration(ctx context.Context, url url.URL, client oncallClient.Client, i *oncallv1.Integration) error {

@@ -17,7 +17,7 @@ import (
 type Client interface {
 	Get(context.Context, url.URL) ([]byte, error)
 	Post(context.Context, url.URL, interface{}) ([]byte, error)
-	Put() error
+	Put(context.Context, url.URL, interface{}) ([]byte, error)
 	Delete(context.Context, url.URL) error
 }
 
@@ -62,8 +62,23 @@ func (c *DefaultClient) Post(ctx context.Context, target url.URL, data interface
 	return raw, c.checkRespError(res, err)
 }
 
-func (c *DefaultClient) Put() error {
-	return nil
+func (c *DefaultClient) Put(ctx context.Context, target url.URL, data interface{}) ([]byte, error) {
+	jsonStr, err := json.Marshal(data)
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequest(http.MethodPut, target.String(), bytes.NewBuffer(jsonStr))
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := c.sendRequest(req)
+	if err != nil {
+		return nil, c.checkRespError(res, err)
+	}
+	raw, err := io.ReadAll(res.Body)
+	ctrllog.FromContext(ctx).Info(string(raw))
+	return raw, c.checkRespError(res, err)
 }
 
 func (c *DefaultClient) Delete(ctx context.Context, target url.URL) error {

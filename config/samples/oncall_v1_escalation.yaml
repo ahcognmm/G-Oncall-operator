@@ -1,0 +1,12 @@
+apiVersion: oncall.ahcogn.com/v1
+kind: Escalation
+metadata:
+  labels:
+    app.kubernetes.io/name: escalation
+    app.kubernetes.io/instance: escalation-sample
+    app.kubernetes.io/part-of: grafana-oncall-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: grafana-oncall-operator
+  name: escalation-sample
+spec:
+  # TODO(user): Add fields here
