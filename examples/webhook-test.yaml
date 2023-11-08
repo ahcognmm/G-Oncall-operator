@@ -6,3 +6,20 @@ metadata:
 spec:
   type: webhook
   name: "hapn test"
+  templates:
+    grouping_key: "{{ payload.oncall }}"
+    resolve_signal: "{{ payload.oncall }}"
+  routes:
+    - routing_regex: "{{ payload.oncall }}"
+      position: 0
+    - routing_regex: "{{ payload.oncall2 }}"
+      position: 0
+
+---
+apiVersion: oncall.ahcogn.com/v1
+kind: Escalation
+metadata:
+  name: devops
+  namespace: oncall
+spec:
+  name: DevOps

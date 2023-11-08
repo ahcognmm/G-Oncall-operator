@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"net/http"
 	"net/url"
 
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -16,21 +18,20 @@ import (
 
 	oncallv1 "github.com/ahcogn/grafana-oncall-operator/api/v1"
 	oncallClient "github.com/ahcogn/grafana-oncall-operator/internal/client"
+	customerror "github.com/ahcogn/grafana-oncall-operator/internal/error"
 	oncall_schema "github.com/ahcogn/grafana-oncall-operator/internal/schemas"
 )
 
 const (
-	integrationUrl  = "/api/v1/integrations/"
-	routeUrl        = "/api/v1/routes/"
-	oncallFinalizer = "oncall.grafana.com/finalizer"
+	integrationUrl = "/api/v1/integrations/"
+	routeUrl       = "/api/v1/routes/"
 )
 
 // IntegrationReconciler reconciles a Integration object
 type IntegrationReconciler struct {
 	client.Client
-	Scheme  *runtime.Scheme
-	Config  oncallClient.Config
-	baseUrl string
+	Scheme *runtime.Scheme
+	Config oncallClient.Config
 }
 
 //+kubebuilder:rbac:groups=oncall.ahcogn.com,resources=integrations,verbs=get;list;watch;create;update;patch;delete
@@ -126,12 +127,17 @@ func (r *IntegrationReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	err = r.updateIntegration(ctx, *&r.Config.OncallUrl, client, integration)
+	err = r.updateIntegration(ctx, *&r.Config.OncallUrl, client, integration, req)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
 	err = r.Status().Update(ctx, integration)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	err = r.Update(ctx, integration)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -167,7 +173,65 @@ func (r *IntegrationReconciler) createIntegration(ctx context.Context, url url.U
 	return err
 }
 
-func (r *IntegrationReconciler) updateIntegration(ctx context.Context, url url.URL, client oncallClient.Client, integration *oncallv1.Integration) error {
+func (r *IntegrationReconciler) updateIntegration(ctx context.Context, url url.URL, client oncallClient.Client, integration *oncallv1.Integration, ctrlReq ctrl.Request) error {
+
+	var routes []oncallv1.Route
+	baseRouteUrl := url.JoinPath(routeUrl)
+	for _, route := range integration.Spec.Routes {
+		var (
+			resp []byte
+			err  error
+		)
+		routeRq := make(map[string]interface{})
+		routeRq["routing_regex"] = route.RoutingRegex
+		routeRq["integration_id"] = integration.Spec.ID
+		routeRq["position"] = route.Position
+
+		// if there escalationChain is set, replace it with its id
+		if route.EscalationChain != "" {
+			escalationChain, err := r.getEscalationChainByName(ctx, route.EscalationChain, ctrlReq)
+			if err != nil {
+				return err
+			}
+			routeRq["escalation_chain_id"] = &escalationChain.Spec.ID
+		} else {
+			routeRq["escalation_chain_id"] = nil
+		}
+
+		if route.ID != "" {
+			baseURL := baseRouteUrl.JoinPath(route.ID)
+			if routeRq["escalation_chain_id"] == nil {
+				delete(routeRq, "escalation_chain_id")
+			}
+			resp, err = client.Put(ctx, *baseURL, routeRq)
+			if err != nil {
+				if err.(customerror.HTTPError).StatusCode == http.StatusNotFound {
+					resp, err = client.Post(ctx, *baseRouteUrl, routeRq)
+					if err != nil {
+						return err
+					}
+					return nil
+				}
+				return err
+			}
+		} else {
+			resp, err = client.Post(ctx, *baseRouteUrl, routeRq)
+			ctrllog.FromContext(ctx).Info("POST route")
+			if err != nil {
+				return err
+			}
+		}
+
+		routeResponse := &oncallv1.Route{}
+		err = json.NewDecoder(bytes.NewBuffer(resp)).Decode(&routeResponse)
+		ctrllog.FromContext(ctx).Info(string(resp))
+		if err != nil {
+			return err
+		}
+		routes = append(routes, *routeResponse)
+	}
+	integration.Spec.Routes = routes
+
 	integrationReq := &oncallv1.IntegrationSpec{
 		Templates: integration.Spec.Templates,
 	}
@@ -185,41 +249,29 @@ func (r *IntegrationReconciler) updateIntegration(ctx context.Context, url url.U
 		return err
 	}
 
-	var routes []oncallv1.Route
-	baseRouteUrl := url.JoinPath(routeUrl)
-	for _, route := range integration.Spec.Routes {
-		var (
-			resp []byte
-			err  error
-		)
-		if route.ID != "" {
-			baseURL := baseRouteUrl.JoinPath(route.ID)
-			resp, err = client.Put(ctx, *baseURL, route)
-			if err != nil {
-				return err
-			}
-		} else {
-			resp, err = client.Post(ctx, *baseRouteUrl, route)
-			if err != nil {
-				return err
-			}
+	integration.Status.HttpEndpoint = integrationResp.Link
+	integration.Spec.DefaultRoute = integrationResp.DefaultRoute
 
-		}
+	return nil
+}
 
-		routeResponse := &oncallv1.Route{}
-		err = json.NewDecoder(bytes.NewBuffer(resp)).Decode(&routeResponse)
-		if err != nil {
-			return err
-		}
-		routes = append(routes, *routeResponse)
+func (r *IntegrationReconciler) getEscalationChainByName(ctx context.Context, escalationChainName string, req ctrl.Request) (*oncallv1.Escalation, error) {
+
+	escalation := &oncallv1.Escalation{}
+	err := r.Get(ctx, types.NamespacedName{Name: escalationChainName, Namespace: req.Namespace}, escalation)
+
+	if err != nil && errors.IsNotFound(err) {
+		return nil, err
 	}
 
-	integration.Spec.Routes = routes
-	return nil
+	return escalation, nil
+
 }
 
 func (r *IntegrationReconciler) finalizeIntegration(ctx context.Context, url url.URL, client oncallClient.Client, i *oncallv1.Integration) error {
 	err := client.Delete(ctx, url)
+
+	// TODO: delete routes
 	return err
 }
 

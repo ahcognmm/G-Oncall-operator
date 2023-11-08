@@ -44,6 +44,7 @@ func (c *DefaultClient) Get(ctx context.Context, target url.URL) ([]byte, error)
 
 func (c *DefaultClient) Post(ctx context.Context, target url.URL, data interface{}) ([]byte, error) {
 	jsonStr, err := json.Marshal(data)
+	ctrllog.FromContext(ctx).Info(string(jsonStr))
 	if err != nil {
 		return nil, err
 	}

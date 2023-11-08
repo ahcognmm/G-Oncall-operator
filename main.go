@@ -120,6 +120,7 @@ func main() {
 	if err = (&controllers.EscalationReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
+		Config: config,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Escalation")
 		os.Exit(1)

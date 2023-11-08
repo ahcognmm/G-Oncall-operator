@@ -122,7 +122,6 @@ spec:
                 type: array
             required:
             - http_endpoint
-            - route_ids
             type: object
         type: object
     served: true
