@@ -81,7 +81,7 @@ func (r *EscalationReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return r.finalize()
 	})
 	if err != nil {
-		return ctrl.Result{}, nil
+		return ctrl.Result{}, err
 	}
 
 	eId := escalation.Spec.ID
@@ -98,12 +98,12 @@ func (r *EscalationReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 	err = r.updateEscalation(ctx, client, &r.Config.OncallUrl, escalation)
 	if err != nil {
-		return ctrl.Result{}, nil
+		return ctrl.Result{}, err
 	}
 
 	err = r.Update(ctx, escalation)
 	if err != nil {
-		return ctrl.Result{}, nil
+		return ctrl.Result{}, err
 	}
 
 	log.Info("Done reconciling escalation")
@@ -142,15 +142,15 @@ func (r *EscalationReconciler) updateEscalation(ctx context.Context, oncallClien
 	}{}
 	policyResp := &oncallv1.EscalationPolicy{}
 
-	// TODO: create escalation policies
+	// TODO: delete policy if not exist
 	baseEsacalationPolicesURl := baseURL.JoinPath(escalationPoliciesURL)
 	for _, policy := range escalation.Spec.EscalationPolices {
 		pMap.EscalationChainId = escalation.Spec.ID
 		pMap.EscalationPolicy = policy
 		pId := policy.ID
 		if pId != "" {
-			baseEsacalationPolicesURl = baseEsacalationPolicesURl.JoinPath(pId)
-			policyRespRaw, err = oncallClient.Put(ctx, *baseEsacalationPolicesURl, pMap)
+			baseEsacalationPolicesURlWithID := baseEsacalationPolicesURl.JoinPath(pId)
+			policyRespRaw, err = oncallClient.Put(ctx, *baseEsacalationPolicesURlWithID, pMap)
 			if err != nil {
 				return err
 			}

@@ -40,7 +40,7 @@ type EscalationSpec struct {
 
 type EscalationPolicy struct {
 	ID        string `json:"id,omitempty"`
-	Position  string `json:"position,omitempty"`
+	Position  int    `json:"position,omitempty"`
 	Type      string `json:"type,omitempty"`
 	Important string `json:"important,omitempty"`
 

@@ -71,7 +71,7 @@ spec:
                         type: string
                       type: array
                     position:
-                      type: string
+                      type: integer
                     type:
                       type: string
                   type: object

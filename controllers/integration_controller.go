@@ -132,12 +132,14 @@ func (r *IntegrationReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, err
 	}
 
+	copyIntegration := integration.DeepCopy()
+
 	err = r.Status().Update(ctx, integration)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	err = r.Update(ctx, integration)
+	err = r.Update(ctx, copyIntegration)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
