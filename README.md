@@ -3,6 +3,7 @@
 This project provides 2 resources:
 
 `Integration`: Configure oncall integration and route at the same time.
+
 `Escalation`: Configure escalation chain and escalation policy at the same time.
 
 ## Integration
